@@ -26,7 +26,7 @@ class _HomePageState extends State<HomePage> {
     // Set up the position stream listener
     Geolocator.getPositionStream().listen((position) {
       setState(() {
-        carSpeed = position.speed ?? 0.0;
+        carSpeed = position.speed;
       });
     });
   }
@@ -128,7 +128,8 @@ class _HomePageState extends State<HomePage> {
                   Text('Speed:'),
                   // Text('${carSpeed ?? 0}'),
                   Text(
-                      'Current Speed: ${(carSpeed! * 3.6)?.toStringAsFixed(2)} km/h'),
+                      'Current Speed: ${(carSpeed! * 3.6).toStringAsFixed(
+                          2)} km/h'),
                 ],
               ),
             ],
