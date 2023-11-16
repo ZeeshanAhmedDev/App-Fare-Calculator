@@ -22,95 +22,186 @@ class _FrontScreenState extends State<FrontScreen> {
     AssetsAudioPlayer.newPlayer().open(Audio(url), autoStart: true);
   }
 
+  var totalPrice;
+
+  late StreamSubscription _getPositionSubscription;
+
   late double carSpeed = 0.0;
+  //covered distance variable
+  double coveredDistance = 0.0;
+
+  Position? previousPosition;
 
   /// to know car speed
   bool isCalculatingSpeed = false;
 
   /// to reset car speed to zero
 
-  double totalFare = 0.0;
+  double totalFare = 30;
 
   double totalDistance = 0.0;
+
+  // ------------------- calculate waiting time when the car stationary
+  Timer? waitTimer;
   Duration waitDuration = const Duration(seconds: 0);
-  bool isCalculating = false;
-  DateTime? startTime;
+
+  int seconds = 0;
+  Timer? timer;
+
+// ------------------- calculate waiting time when the car stationary
+
+  // bool isCalculating = false;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   @override
   void dispose() {
-    CustomDialogBox.textEditingController.dispose();
+    // CustomDialogBox.textEditingController.dispose();
+    // Stop listening to location changes when the widget is disposed
+    _getPositionSubscription.cancel();
+
+    // Cancel the timer when the widget is disposed
+    if (timer != null) {
+      timer!.cancel();
+    }
     super.dispose();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    // Provider.of<UserNotifier>(context).getFare().then((value) {
-    //   totalFare = value;
-    // });
+    Provider.of<UserNotifier>(context).getFare().then((value) {
+      totalFare = value;
+    });
   }
 
-  // carSpeed Function
-/*  Future<void> calculateSpeed() async {
-    // Set up the position stream listener
-    Geolocator.getPositionStream().listen((position) {
-      setState(() {
-        carSpeed = position.speed;
-      });
-    });
-    //   Position position = await Geolocator.getCurrentPosition(
-
-    // try {
-    //       desiredAccuracy: LocationAccuracy.best);
-    //   setState(() {
-    //     // Speed is in m/s, you can convert it to km/h by multiplying by 3.6
-    //     carSpeed = position.speed;
-    //     setState(() {});
-    //   });
-    // } catch (e) {
-    //   if (kDebugMode) {
-    //     print("Error getting position: $e");
-    //   }
-    // }
-  }*/
-
-  @override
-  void initState() {
-    super.initState();
-    // Set up the position stream listener
-    /*   Geolocator.getPositionStream().listen((position) {
-      setState(() {
-        carSpeed = position.speed;
-      });
-    });*/
-
-    // Distance Calculation
-/*    Geolocator.getPositionStream().listen((position) {
+  void calculateDistance() {
+    Geolocator.getPositionStream().listen((Position position) {
       if (previousPosition != null) {
-        double distanceInMeters = Geolocator.distanceBetween(
+        double distance = Geolocator.distanceBetween(
           previousPosition!.latitude,
           previousPosition!.longitude,
           position.latitude,
           position.longitude,
         );
+
+        // Convert distance from meters to kilometers
+        double distanceInKms = distance / 1000;
+
         setState(() {
-          totalDistance += distanceInMeters / 1000; // Convert to kilometers
+          coveredDistance += distanceInKms;
         });
       }
-      previousPosition = position;
-    });*/
 
+      previousPosition = position;
+    });
+  }
+
+  StreamSubscription<Position>? positionStream;
+
+  // carSpeed Function
+  Future<void> calculateSpeed() async {
     // Set up the position stream listener
-    /*   Geolocator.getPositionStream().listen((Position position) {
-      carSpeed = position.speed; // Speed in m/s
-      if (carSpeed < 2) {
-        startWaitTimer();
-      } else {
-        stopWaitTimer();
+
+    _getPositionSubscription =
+        Geolocator.getPositionStream().listen((position) {
+      setState(() {
+        carSpeed = position.speed;
+      });
+    });
+
+    if (carSpeed < 1.5) {
+      startTimer();
+    } else {
+      stopTimer();
+    }
+  }
+
+  void stopTimerOnStopButton() {
+    if (!isCalculatingSpeed) {
+      if (timer != null) {
+        timer!.cancel();
       }
-      setState(() {});
-    });*/
+    }
+  }
+
+  void disposePositionStream() {
+    positionStream?.cancel();
+    positionStream = null;
+  }
+
+  /// ----------------------------------- WAIT TIME
+
+  void startTimer() {
+    // If a timer is already running, cancel it
+    if (timer != null) {
+      timer!.cancel();
+    }
+
+    // Start a new timer that increments every second
+    timer = Timer.periodic(Duration(seconds: 1), (Timer t) {
+      setState(() {
+        seconds++;
+      });
+    });
+  }
+
+  void stopTimer() {
+    // Stop the timer and reset the seconds to zero
+    if (timer != null) {
+      timer!.cancel();
+      setState(() {
+        seconds = 0;
+      });
+    }
+  }
+/*  void startWaitTimer() {
+    if (kDebugMode) {
+      print('startWaitTimer called');
+    }
+    waitTimer ??= Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        waitDuration += const Duration(seconds: 1);
+      });
+    });
+  }*/
+
+/*  void stopWaitTimer() {
+    setState(() {
+      waitTimer?.cancel();
+      waitTimer = null;
+      waitDuration =
+          Duration.zero; // Reset wait duration when stopping the timer
+      disposePositionStream();
+    });
+  }*/
+
+  ///------------------------------ -------------------------------------
+
+  // carSpeed Function Stopped
+  // Future<void> stopSpeed() async {
+  //   // Set up the position stream listener
+  //   Geolocator.getPositionStream().listen((position) {
+  //     setState(() {
+  //       carSpeed = position.speed;
+  //     });
+  //   });
+  // }
+
+  void stopSpeed() {
+    // Check if the car is already stopped
+    if (carSpeed <= 1.5) {
+      setState(() {
+        carSpeed = 0.0;
+      });
+      if (kDebugMode) {
+        print('Car is already stopped.');
+      }
+      return;
+    }
   }
 
   @override
@@ -158,15 +249,16 @@ class _FrontScreenState extends State<FrontScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  cardBar(
-                      context, 'Distance', '${waitDuration.inSeconds} seconds'),
+                  cardBar(context, 'Distance',
+                      '${coveredDistance.toStringAsFixed(2)} km'),
                 ],
               ),
               //Wait Time
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  cardBar(context, 'Wait Time', '00'),
+                  cardBar(context, 'Wait Time',
+                      '${(seconds / 60).toStringAsFixed(2)} minutes'),
                 ],
               ),
               //Speed
@@ -182,6 +274,10 @@ class _FrontScreenState extends State<FrontScreen> {
                       '${(carSpeed * 3.6 >= 0.5) ? (carSpeed * 3.6).toStringAsFixed(2) : '0.00'} km/h'),
                 ],
               ),
+              // isCalculatingSpeed
+              //     ? cardBar(context, 'Total Fare:',
+              //         '\$${totalPrice.toStringAsFixed(2)}')
+              //     : const Text(''),
             ],
           ),
           Padding(
@@ -192,29 +288,56 @@ class _FrontScreenState extends State<FrontScreen> {
                 SizedBox(
                   height: MediaQuery.of(context).size.width * 0.2,
                   width: MediaQuery.of(context).size.width * 0.8,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      toggleTaximeter();
-                      if (!isCalculatingSpeed) {
-                        isCalculatingSpeed = true;
-                        playSound('assets/audio/start.mp3');
-                      } else {
-                        isCalculatingSpeed = false;
-                        playSound('assets/audio/stop.mp3');
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor:
-                          isCalculatingSpeed ? Colors.red : Colors.green,
-                    ),
-                    child: Text(
-                      isCalculatingSpeed ? 'STOP' : 'START',
-                      style: TextStyle(
-                        fontSize: MediaQuery.of(context).size.height * 0.06,
-                      ),
-                    ),
-                  ),
+                  child: isCalculatingSpeed
+                      ? ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              isCalculatingSpeed = false;
+
+                              stopTimerOnStopButton();
+
+                              playSound('assets/audio/stop.mp3');
+                              calculateFare(
+                                distanceCovered: coveredDistance,
+                                ratePerKilometer: totalFare,
+                                waitTime: Duration(seconds: seconds),
+                              );
+                              stopSpeed();
+
+                              _getPositionSubscription.cancel();
+                              CustomDialogBox.dialogBox(context, totalPrice);
+                              coveredDistance = 0.0;
+                              seconds = 0;
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: Colors.red,
+                          ),
+                          child: Text(
+                            'STOP',
+                            style: TextStyle(
+                              fontSize:
+                                  MediaQuery.of(context).size.height * 0.06,
+                            ),
+                          ),
+                        )
+                      : ElevatedButton(
+                          onPressed: () {
+                            toggleTaximeter();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: Colors.green,
+                          ),
+                          child: Text(
+                            'START',
+                            style: TextStyle(
+                              fontSize:
+                                  MediaQuery.of(context).size.height * 0.06,
+                            ),
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -224,76 +347,62 @@ class _FrontScreenState extends State<FrontScreen> {
     );
   }
 
-  Future<void> updateTaximeter() async {
-    try {
-      Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.lowest);
-
-      setState(() {
-        double newSpeed = position.speed ?? 0.0;
-        double distance = Geolocator.distanceBetween(
-          position.latitude,
-          position.longitude,
-          position.latitude,
-          position.longitude,
-        );
-
-        if (startTime == null) {
-          startTime = DateTime.now();
-        }
-
-        if (newSpeed > 0.0) {
-          carSpeed = newSpeed;
-        }
-
-        if (isCalculatingSpeed) {
-          totalDistance += distance;
-          calculateFare();
-        }
-      });
-    } catch (e) {
-      print("Error getting position: $e");
-    }
-  }
-
   void toggleTaximeter() {
     setState(() {
-      if (isCalculatingSpeed) {
-        stopTaximeter();
-      } else {
-        startTaximeter();
-      }
+      if (!isCalculatingSpeed) {
+        calculateSpeed();
+        calculateDistance();
+        isCalculatingSpeed = true;
+        playSound('assets/audio/start.mp3');
+      } /*else {
+        isCalculatingSpeed = false;
+        playSound('assets/audio/stop.mp3');
+        // totalPrice = totalFare * coveredDistance;
+        calculateFare(
+          distanceCovered: coveredDistance,
+          ratePerKilometer: totalFare,
+          waitTime: Duration.zero,
+        );
+        stopSpeed();
+
+        _getPositionSubscription.cancel();
+        CustomDialogBox.dialogBox(context, totalPrice);
+        coveredDistance = 0.0;
+        waitDuration = Duration.zero;
+
+        if (kDebugMode) {
+          print("Price:-------->  ${calculateFare(
+            distanceCovered: coveredDistance,
+            ratePerKilometer: totalFare,
+            waitTime: waitDuration,
+          )}");
+        }
+      }*/
     });
   }
 
-  void startTaximeter() {
-    setState(() {
-      isCalculatingSpeed = true;
-      startTime = DateTime.now();
-      totalDistance = 0.0;
-      totalFare = 0.0;
-      carSpeed = 0.0;
+  double calculateFare(
+      {required double ratePerKilometer,
+      required double distanceCovered,
+      required Duration waitTime}) {
+    double waitTimeRatePerMinute = 1;
 
-      // Start updating taximeter every second
-      Timer.periodic(Duration(seconds: 1), (timer) {
-        updateTaximeter();
-      });
-    });
+    // Calculate fare based on distance
+    double distanceFare = ratePerKilometer * distanceCovered;
+
+    // Calculate wait time in minutes
+    int waitTimeInMinutes = waitTime.inMinutes;
+
+    // Calculate fare based on wait time
+    double waitTimeFare = waitTimeRatePerMinute * waitTimeInMinutes;
+
+    // Calculate total fare
+    double totalFare = distanceFare + waitTimeFare;
+
+    totalPrice = totalFare;
+    return totalPrice;
   }
 
-  void stopTaximeter() {
-    setState(() {
-      isCalculatingSpeed = false;
-      startTime = null;
-    });
-  }
+  ///---------------TOTAL FARE ------------------------------
 
-  void calculateFare() {
-    DateTime now = DateTime.now();
-    Duration duration = now.difference(startTime!);
-    int hours = duration.inSeconds;
-
-    // Hourly rate is $50
-    totalFare = hours * 50.0;
-  }
 }

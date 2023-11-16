@@ -93,7 +93,7 @@ class _ChangeFareScreenState extends State<ChangeFareScreen> {
                         onPressed: () {
                           Provider.of<UserNotifier>(context, listen: false)
                               .storeFare(
-                            textEditingController.text,
+                            double.parse(textEditingController.text),
                           );
 
                           ScaffoldMessenger.of(context)

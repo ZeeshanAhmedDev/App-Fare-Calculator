@@ -5,40 +5,41 @@ import 'package:provider/provider.dart';
 import 'package:taxi_meter/Utils/provider.dart';
 
 class CustomDialogBox {
-  static final TextEditingController textEditingController =
-      TextEditingController();
+  // static final TextEditingController textEditingController =
+  //     TextEditingController();
 
-  static String value = "";
+  var value = "";
 
-  static dialogBox(BuildContext context) {
+  static dialogBox(BuildContext context, var value) {
     AwesomeDialog(
-      context: context,
-      dialogType: DialogType.noHeader,
-      animType: AnimType.rightSlide,
-      title: 'Dialog Title',
-      // desc: 'Dialog description here.............',
-      body: TextField(
-        controller: textEditingController,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        // Allows only numeric and decimal input
-        style: const TextStyle(
-          decorationColor: Color(0xFF7EC349),
-          // color: Colors.black, // Text color
-        ),
-
-        decoration: const InputDecoration(
-          labelText: 'Change Fare',
-          labelStyle: TextStyle(color: Color(0xFF7EC349)
-              // Cursor color
-              ),
-          border: OutlineInputBorder(),
-          contentPadding: EdgeInsets.all(12.0),
-        ),
-      ),
-      btnOkOnPress: () async {
-        Provider.of<UserNotifier>(context, listen: false)
-            .storeFare(textEditingController.text);
-      },
-    ).show();
+            context: context,
+            dialogType: DialogType.noHeader,
+            animType: AnimType.rightSlide,
+            title: 'Total Fare',
+            // desc: 'Dialog description here.............',
+            body: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Text(
+                  'Total Fare:',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: MediaQuery.of(context).size.height * 0.02,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                Text(
+                  '\$${value.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: MediaQuery.of(context).size.height * 0.03,
+                    fontWeight: FontWeight.bold,
+                    // fontStyle: FontWeight.bold
+                  ),
+                ),
+              ],
+            ),
+            btnOkOnPress: () {})
+        .show();
   }
 }
