@@ -8,6 +8,7 @@ import 'package:taxi_meter/Utils/dialogBox.dart';
 import '../Utils/changefare.dart';
 import '../Utils/provider.dart';
 import 'dart:async';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class FrontScreen extends StatefulWidget {
   const FrontScreen({super.key});
@@ -21,6 +22,8 @@ class _FrontScreenState extends State<FrontScreen> {
   void playSound(String url) async {
     AssetsAudioPlayer.newPlayer().open(Audio(url), autoStart: true);
   }
+
+  FlutterTts flutterTts = FlutterTts();
 
   var totalPrice;
 
@@ -38,6 +41,7 @@ class _FrontScreenState extends State<FrontScreen> {
   /// to reset car speed to zero
 
   double totalFare = 30;
+  double ratePerKilometer = 2;
 
   double totalDistance = 0.0;
 
@@ -79,7 +83,12 @@ class _FrontScreenState extends State<FrontScreen> {
   }
 
   void calculateDistance() {
-    Geolocator.getPositionStream().listen((Position position) {
+    setState(() {
+      previousPosition = null; // Reset previous position
+    });
+
+    positionStreamForDistance =
+        Geolocator.getPositionStream().listen((Position position) {
       if (previousPosition != null) {
         double distance = Geolocator.distanceBetween(
           previousPosition!.latitude,
@@ -101,6 +110,7 @@ class _FrontScreenState extends State<FrontScreen> {
   }
 
   StreamSubscription<Position>? positionStream;
+  StreamSubscription<Position>? positionStreamForDistance;
 
   // carSpeed Function
   Future<void> calculateSpeed() async {
@@ -297,17 +307,23 @@ class _FrontScreenState extends State<FrontScreen> {
                               stopTimerOnStopButton();
 
                               playSound('assets/audio/stop.mp3');
+
                               calculateFare(
+                                baseRate: totalFare,
+                                perKilometerRate: ratePerKilometer,
                                 distanceCovered: coveredDistance,
-                                ratePerKilometer: totalFare,
                                 waitTime: Duration(seconds: seconds),
                               );
                               stopSpeed();
 
                               _getPositionSubscription.cancel();
                               CustomDialogBox.dialogBox(context, totalPrice);
+                              // speak("Your total fare is $totalPrice");
                               coveredDistance = 0.0;
+                              previousPosition =
+                                  null; // Reset previous position
                               seconds = 0;
+                              positionStreamForDistance!.cancel();
                             });
                           },
                           style: ElevatedButton.styleFrom(
@@ -381,14 +397,16 @@ class _FrontScreenState extends State<FrontScreen> {
     });
   }
 
-  double calculateFare(
-      {required double ratePerKilometer,
-      required double distanceCovered,
-      required Duration waitTime}) {
+  double calculateFare({
+    required double baseRate,
+    required double perKilometerRate,
+    required double distanceCovered,
+    required Duration waitTime,
+  }) {
     double waitTimeRatePerMinute = 1;
 
     // Calculate fare based on distance
-    double distanceFare = ratePerKilometer * distanceCovered;
+    double distanceFare = baseRate + (perKilometerRate * distanceCovered);
 
     // Calculate wait time in minutes
     int waitTimeInMinutes = waitTime.inMinutes;
@@ -402,6 +420,14 @@ class _FrontScreenState extends State<FrontScreen> {
     totalPrice = totalFare;
     return totalPrice;
   }
+
+  // Future<void> speak(String text) async {
+  //   await flutterTts.setLanguage("en-US"); // Change to the desired language
+  //   await flutterTts.setPitch(1.0); // Adjust pitch (1.0 is the default)
+  //   await flutterTts
+  //       .setSpeechRate(0.5); // Adjust speech rate (1.0 is the default)
+  //   await flutterTts.speak(text);
+  // }
 
   ///---------------TOTAL FARE ------------------------------
 
