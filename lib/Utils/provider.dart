@@ -18,7 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class UserNotifier extends ChangeNotifier {
   // Default value for the fare if it's not set
-  static const double defaultFare = 0.0;
+  static const double defaultFare = 30;
 
   double _fare = defaultFare;
 

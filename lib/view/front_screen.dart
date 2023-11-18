@@ -43,8 +43,6 @@ class _FrontScreenState extends State<FrontScreen> {
   double totalFare = 30;
   double ratePerKilometer = 2;
 
-  double totalDistance = 0.0;
-
   // ------------------- calculate waiting time when the car stationary
   Timer? waitTimer;
   Duration waitDuration = const Duration(seconds: 0);
@@ -205,6 +203,7 @@ class _FrontScreenState extends State<FrontScreen> {
     // Check if the car is already stopped
     if (carSpeed <= 1.5) {
       setState(() {
+        _getPositionSubscription.cancel();
         carSpeed = 0.0;
       });
       if (kDebugMode) {
@@ -267,8 +266,7 @@ class _FrontScreenState extends State<FrontScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  cardBar(context, 'Wait Time',
-                      '${(seconds / 60).toStringAsFixed(2)} minutes'),
+                  cardBar(context, 'Wait Time', '${(seconds)} Seconds'),
                 ],
               ),
               //Speed
@@ -403,6 +401,31 @@ class _FrontScreenState extends State<FrontScreen> {
     required double distanceCovered,
     required Duration waitTime,
   }) {
+    double waitTimeRatePerSecond =
+        1 / 60; // 1$ per minute converted to cents per second
+
+    // Calculate fare based on distance
+    double distanceFare = baseRate + (perKilometerRate * distanceCovered);
+
+    // Calculate wait time in seconds
+    int waitTimeInSeconds = waitTime.inSeconds;
+
+    // Calculate fare based on wait time
+    double waitTimeFare = waitTimeRatePerSecond * waitTimeInSeconds;
+
+    // Calculate total fare
+    double totalFare = distanceFare + waitTimeFare;
+
+    totalPrice = totalFare;
+    return totalPrice;
+  }
+
+  /* double calculateFare({
+    required double baseRate,
+    required double perKilometerRate,
+    required double distanceCovered,
+    required Duration waitTime,
+  }) {
     double waitTimeRatePerMinute = 1;
 
     // Calculate fare based on distance
@@ -419,7 +442,7 @@ class _FrontScreenState extends State<FrontScreen> {
 
     totalPrice = totalFare;
     return totalPrice;
-  }
+  }*/
 
   // Future<void> speak(String text) async {
   //   await flutterTts.setLanguage("en-US"); // Change to the desired language
