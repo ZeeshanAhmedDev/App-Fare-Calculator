@@ -2,13 +2,14 @@ import 'package:assets_audio_player/assets_audio_player.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
 import 'package:taxi_meter/Utils/Horizontal%20Cards.dart';
 import 'package:taxi_meter/Utils/dialogBox.dart';
 import '../Utils/changefare.dart';
 import '../Utils/provider.dart';
 import 'dart:async';
-import 'package:flutter_tts/flutter_tts.dart';
+// import 'package:flutter_tts/flutter_tts.dart';
 
 class FrontScreen extends StatefulWidget {
   const FrontScreen({super.key});
@@ -23,7 +24,10 @@ class _FrontScreenState extends State<FrontScreen> {
     AssetsAudioPlayer.newPlayer().open(Audio(url), autoStart: true);
   }
 
-  FlutterTts flutterTts = FlutterTts();
+  var logger = Logger();
+
+//Text to Speech Instance
+//   FlutterTts flutterTts = FlutterTts();
 
   var totalPrice;
 
@@ -107,6 +111,13 @@ class _FrontScreenState extends State<FrontScreen> {
     });
   }
 
+  //for getting real time car speed with best accuracy
+
+/*  final LocationSettings locationSettings = const LocationSettings(
+    accuracy: LocationAccuracy.best,
+    distanceFilter: 10,
+  );*/
+
   StreamSubscription<Position>? positionStream;
   StreamSubscription<Position>? positionStreamForDistance;
 
@@ -117,15 +128,16 @@ class _FrontScreenState extends State<FrontScreen> {
     _getPositionSubscription =
         Geolocator.getPositionStream().listen((position) {
       setState(() {
-        carSpeed = position.speed;
+        // carSpeed = position.speed;
+        carSpeed = (position.speed) * 3.6; // Speed in km/h
       });
+      // If carSpeed is less than 1 km/h
+      if (carSpeed < 1.0) {
+        startTimer();
+      } else {
+        stopTimer();
+      }
     });
-
-    if (carSpeed < 1.5) {
-      startTimer();
-    } else {
-      stopTimer();
-    }
   }
 
   void stopTimerOnStopButton() {
@@ -150,7 +162,7 @@ class _FrontScreenState extends State<FrontScreen> {
     }
 
     // Start a new timer that increments every second
-    timer = Timer.periodic(Duration(seconds: 1), (Timer t) {
+    timer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
       setState(() {
         seconds++;
       });
@@ -158,50 +170,29 @@ class _FrontScreenState extends State<FrontScreen> {
   }
 
   void stopTimer() {
-    // Stop the timer and reset the seconds to zero
+    /// commented out setStates because it resetting wait time to zero instead of freezing the time.
+
     if (timer != null) {
       timer!.cancel();
-      setState(() {
-        seconds = 0;
-      });
+      // setState(() {
+      //   seconds = 0;
+      // });
+      /// commented out setStates because it resetting wait time to zero instead of freezing the time.
+
+      logger.w("Timer is working Stopped!");
+    } else {
+      if (kDebugMode) {
+        logger.d("Timer is null. Cannot stop.");
+      }
     }
   }
-/*  void startWaitTimer() {
-    if (kDebugMode) {
-      print('startWaitTimer called');
-    }
-    waitTimer ??= Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        waitDuration += const Duration(seconds: 1);
-      });
-    });
-  }*/
-
-/*  void stopWaitTimer() {
-    setState(() {
-      waitTimer?.cancel();
-      waitTimer = null;
-      waitDuration =
-          Duration.zero; // Reset wait duration when stopping the timer
-      disposePositionStream();
-    });
-  }*/
 
   ///------------------------------ -------------------------------------
 
-  // carSpeed Function Stopped
-  // Future<void> stopSpeed() async {
-  //   // Set up the position stream listener
-  //   Geolocator.getPositionStream().listen((position) {
-  //     setState(() {
-  //       carSpeed = position.speed;
-  //     });
-  //   });
-  // }
-
   void stopSpeed() {
     // Check if the car is already stopped
-    if (carSpeed <= 1.5) {
+    // if (carSpeed <= 1.5) {
+    if (carSpeed < 1) {
       setState(() {
         _getPositionSubscription.cancel();
         carSpeed = 0.0;
@@ -266,26 +257,18 @@ class _FrontScreenState extends State<FrontScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  cardBar(context, 'Wait Time', '${(seconds)} Seconds'),
+                  cardBar(context, 'Wait Time',
+                      '${(seconds / 60).toStringAsFixed(2)} Minutes'),
                 ],
               ),
               //Speed
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  /* isCalculatingSpeed == false
-                      ? cardBar(context, 'Speed', 'FOR HIRE')
-                      : carSpeed == 0.0
-                      ? cardBar(context, 'Speed', 'STOPPED')
-                      : */
                   cardBar(context, 'Speed',
-                      '${(carSpeed * 3.6 >= 0.5) ? (carSpeed * 3.6).toStringAsFixed(2) : '0.00'} km/h'),
+                      '${(carSpeed.toStringAsFixed(2))} km/h'),
                 ],
               ),
-              // isCalculatingSpeed
-              //     ? cardBar(context, 'Total Fare:',
-              //         '\$${totalPrice.toStringAsFixed(2)}')
-              //     : const Text(''),
             ],
           ),
           Padding(
@@ -419,30 +402,6 @@ class _FrontScreenState extends State<FrontScreen> {
     totalPrice = totalFare;
     return totalPrice;
   }
-
-  /* double calculateFare({
-    required double baseRate,
-    required double perKilometerRate,
-    required double distanceCovered,
-    required Duration waitTime,
-  }) {
-    double waitTimeRatePerMinute = 1;
-
-    // Calculate fare based on distance
-    double distanceFare = baseRate + (perKilometerRate * distanceCovered);
-
-    // Calculate wait time in minutes
-    int waitTimeInMinutes = waitTime.inMinutes;
-
-    // Calculate fare based on wait time
-    double waitTimeFare = waitTimeRatePerMinute * waitTimeInMinutes;
-
-    // Calculate total fare
-    double totalFare = distanceFare + waitTimeFare;
-
-    totalPrice = totalFare;
-    return totalPrice;
-  }*/
 
   // Future<void> speak(String text) async {
   //   await flutterTts.setLanguage("en-US"); // Change to the desired language
