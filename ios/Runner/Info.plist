@@ -3,6 +3,13 @@
 <plist version="1.0">
 <dict>
 
+
+<key>BGTaskSchedulerPermittedIdentifiers</key>
+<array>
+    <string>dev.flutter.background.refresh</string>
+</array>
+
+
 <key>NSLocationWhenInUseUsageDescription</key>
 <string>This app needs access to location when open.</string>
 <key>NSLocationAlwaysUsageDescription</key>

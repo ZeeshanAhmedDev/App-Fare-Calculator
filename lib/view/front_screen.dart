@@ -24,6 +24,12 @@ class _FrontScreenState extends State<FrontScreen> {
     AssetsAudioPlayer.newPlayer().open(Audio(url), autoStart: true);
   }
 
+  StreamController<double> _fareController = StreamController<double>();
+  // Declare a periodic timer
+  Timer? fareUpdateTimer;
+  // Declare a default fare value
+  double defaultFare = 0.0;
+
   var logger = Logger();
 
 //Text to Speech Instance
@@ -60,11 +66,16 @@ class _FrontScreenState extends State<FrontScreen> {
 
   @override
   void initState() {
+    startFareUpdateTimer();
     super.initState();
+    _fareController = StreamController<double>();
   }
 
   @override
   void dispose() {
+    // _fareController.close();
+
+    ///--------------------------
     // CustomDialogBox.textEditingController.dispose();
     // Stop listening to location changes when the widget is disposed
     _getPositionSubscription.cancel();
@@ -112,8 +123,8 @@ class _FrontScreenState extends State<FrontScreen> {
   }
 
   //for getting real time car speed with best accuracy
-
-/*  final LocationSettings locationSettings = const LocationSettings(
+/*
+  final LocationSettings locationSettings = const LocationSettings(
     accuracy: LocationAccuracy.best,
     distanceFilter: 10,
   );*/
@@ -190,12 +201,11 @@ class _FrontScreenState extends State<FrontScreen> {
   ///------------------------------ -------------------------------------
 
   void stopSpeed() {
-    // Check if the car is already stopped
-    // if (carSpeed <= 1.5) {
-    if (carSpeed < 1) {
+    if (carSpeed <= 1 || carSpeed > 1) {
       setState(() {
         _getPositionSubscription.cancel();
         carSpeed = 0.0;
+        _getPositionSubscription.cancel();
       });
       if (kDebugMode) {
         print('Car is already stopped.');
@@ -238,13 +248,18 @@ class _FrontScreenState extends State<FrontScreen> {
           Column(
             children: [
               //Fare
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  cardBar(
-                      context, 'Fare', '\$ ${totalFare.toStringAsFixed(2)}'),
-                ],
+              StreamBuilder<double>(
+                stream: _fareController.stream,
+                builder: (context, snapshot) {
+                  if (kDebugMode) {
+                    print("Stream Updated: ${snapshot.data}");
+                  }
+                  double totalFares = snapshot.data ?? totalFare;
+                  return cardBar(
+                      context, 'Fare', '\$ ${totalFares.toStringAsFixed(2)}');
+                },
               ),
+
               //Distance
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -254,12 +269,18 @@ class _FrontScreenState extends State<FrontScreen> {
                 ],
               ),
               //Wait Time
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  cardBar(context, 'Wait Time',
-                      '${(seconds / 60).toStringAsFixed(2)} Minutes'),
-                ],
+              SingleChildScrollView(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    cardBar(
+                        context,
+                        'Wait Time        ',
+                        (seconds < 60)
+                            ? '$seconds Seconds'
+                            : '${(seconds / 60).floor()}   Minutes  ${(seconds % 60)} Seconds'),
+                  ],
+                ),
               ),
               //Speed
               Row(
@@ -289,12 +310,12 @@ class _FrontScreenState extends State<FrontScreen> {
 
                               playSound('assets/audio/stop.mp3');
 
-                              calculateFare(
-                                baseRate: totalFare,
-                                perKilometerRate: ratePerKilometer,
-                                distanceCovered: coveredDistance,
-                                waitTime: Duration(seconds: seconds),
-                              );
+                              stopFareUpdateTimer();
+                              // Provider.of<UserNotifier>(context, listen: false)
+                              //     .getFare()
+                              //     .then((value) {
+                              //   totalFare = value;
+                              // });
                               stopSpeed();
 
                               _getPositionSubscription.cancel();
@@ -305,6 +326,7 @@ class _FrontScreenState extends State<FrontScreen> {
                                   null; // Reset previous position
                               seconds = 0;
                               positionStreamForDistance!.cancel();
+                              _fareController.close();
                             });
                           },
                           style: ElevatedButton.styleFrom(
@@ -351,30 +373,8 @@ class _FrontScreenState extends State<FrontScreen> {
         calculateDistance();
         isCalculatingSpeed = true;
         playSound('assets/audio/start.mp3');
-      } /*else {
-        isCalculatingSpeed = false;
-        playSound('assets/audio/stop.mp3');
-        // totalPrice = totalFare * coveredDistance;
-        calculateFare(
-          distanceCovered: coveredDistance,
-          ratePerKilometer: totalFare,
-          waitTime: Duration.zero,
-        );
-        stopSpeed();
-
-        _getPositionSubscription.cancel();
-        CustomDialogBox.dialogBox(context, totalPrice);
-        coveredDistance = 0.0;
-        waitDuration = Duration.zero;
-
-        if (kDebugMode) {
-          print("Price:-------->  ${calculateFare(
-            distanceCovered: coveredDistance,
-            ratePerKilometer: totalFare,
-            waitTime: waitDuration,
-          )}");
-        }
-      }*/
+        // startCalculatingFare();
+      }
     });
   }
 
@@ -398,9 +398,31 @@ class _FrontScreenState extends State<FrontScreen> {
 
     // Calculate total fare
     double totalFare = distanceFare + waitTimeFare;
+    _fareController.add(totalFare);
 
     totalPrice = totalFare;
     return totalPrice;
+  }
+
+  // Function to start the periodic timer
+  void startFareUpdateTimer() {
+    const Duration updateInterval = Duration(seconds: 1);
+
+    fareUpdateTimer = Timer.periodic(updateInterval, (timer) {
+      calculateFare(
+        baseRate: totalFare,
+        perKilometerRate: ratePerKilometer,
+        distanceCovered: coveredDistance,
+        waitTime: Duration(seconds: seconds),
+      );
+    });
+  }
+
+  // Function to stop the periodic timer
+  void stopFareUpdateTimer() {
+    setState(() {
+      fareUpdateTimer?.cancel();
+    });
   }
 
   // Future<void> speak(String text) async {

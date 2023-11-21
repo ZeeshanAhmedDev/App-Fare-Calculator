@@ -4,7 +4,8 @@ Widget cardBar(BuildContext context, String title, String description) {
   double height = MediaQuery.of(context).size.height;
   double width = MediaQuery.of(context).size.width;
   return SizedBox(
-    height: height * 0.102,
+    // height: height * 0.102,
+    height: height * 0.126,
     width: width * 0.9,
     child: Card(
       elevation: 3,
@@ -23,11 +24,13 @@ Widget cardBar(BuildContext context, String title, String description) {
                 fontSize: height * 0.03,
               ),
             ),
-            Text(
-              description,
-              style: TextStyle(
-                fontSize: height * 0.03,
-                fontWeight: FontWeight.w500,
+            Flexible(
+              child: Text(
+                description,
+                style: TextStyle(
+                  fontSize: height * 0.03,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],
