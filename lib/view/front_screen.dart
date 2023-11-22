@@ -9,7 +9,7 @@ import 'package:taxi_meter/Utils/dialogBox.dart';
 import '../Utils/changefare.dart';
 import '../Utils/provider.dart';
 import 'dart:async';
-// import 'package:flutter_tts/flutter_tts.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class FrontScreen extends StatefulWidget {
   const FrontScreen({super.key});
@@ -24,24 +24,28 @@ class _FrontScreenState extends State<FrontScreen> {
     AssetsAudioPlayer.newPlayer().open(Audio(url), autoStart: true);
   }
 
+  bool isFareActive = false; // For Default Fare
+
   StreamController<double> _fareController = StreamController<double>();
   // Declare a periodic timer
   Timer? fareUpdateTimer;
   // Declare a default fare value
-  double defaultFare = 0.0;
 
   var logger = Logger();
 
 //Text to Speech Instance
-//   FlutterTts flutterTts = FlutterTts();
+  FlutterTts flutterTts = FlutterTts();
 
   var totalPrice;
+
+  bool ignorePointer = false;
 
   late StreamSubscription _getPositionSubscription;
 
   late double carSpeed = 0.0;
   //covered distance variable
   double coveredDistance = 0.0;
+  double? mydDefaultFare;
 
   Position? previousPosition;
 
@@ -62,8 +66,6 @@ class _FrontScreenState extends State<FrontScreen> {
 
 // ------------------- calculate waiting time when the car stationary
 
-  // bool isCalculating = false;
-
   @override
   void initState() {
     startFareUpdateTimer();
@@ -76,7 +78,7 @@ class _FrontScreenState extends State<FrontScreen> {
     // _fareController.close();
 
     ///--------------------------
-    // CustomDialogBox.textEditingController.dispose();
+
     // Stop listening to location changes when the widget is disposed
     _getPositionSubscription.cancel();
 
@@ -185,9 +187,7 @@ class _FrontScreenState extends State<FrontScreen> {
 
     if (timer != null) {
       timer!.cancel();
-      // setState(() {
-      //   seconds = 0;
-      // });
+
       /// commented out setStates because it resetting wait time to zero instead of freezing the time.
 
       logger.w("Timer is working Stopped!");
@@ -219,11 +219,17 @@ class _FrontScreenState extends State<FrontScreen> {
     return Scaffold(
       appBar: AppBar(
           leading: InkWell(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const ChangeFareScreen(),
-              ),
-            ),
+            onTap: () async {
+              final result = await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const ChangeFareScreen(),
+                ),
+              );
+              // Check if result is not null, and update the fare value
+              if (result != null) {
+                updateFareController(result);
+              }
+            },
             child: const Icon(
               Icons.save_as_outlined,
               color: Colors.black,
@@ -305,22 +311,22 @@ class _FrontScreenState extends State<FrontScreen> {
                           onPressed: () {
                             setState(() {
                               isCalculatingSpeed = false;
-
                               stopTimerOnStopButton();
-
-                              playSound('assets/audio/stop.mp3');
+                              speak('App fare calculator stopped');
 
                               stopFareUpdateTimer();
-                              // Provider.of<UserNotifier>(context, listen: false)
-                              //     .getFare()
-                              //     .then((value) {
-                              //   totalFare = value;
-                              // });
                               stopSpeed();
 
                               _getPositionSubscription.cancel();
                               CustomDialogBox.dialogBox(context, totalPrice);
-                              // speak("Your total fare is $totalPrice");
+
+                              ///
+                              Future.delayed(const Duration(seconds: 2))
+                                  .then((value) {
+                                speak(
+                                    "Total fare ${totalPrice.toStringAsFixed(2)} dollars");
+                              });
+
                               coveredDistance = 0.0;
                               previousPosition =
                                   null; // Reset previous position
@@ -341,19 +347,22 @@ class _FrontScreenState extends State<FrontScreen> {
                             ),
                           ),
                         )
-                      : ElevatedButton(
-                          onPressed: () {
-                            toggleTaximeter();
-                          },
-                          style: ElevatedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: Colors.green,
-                          ),
-                          child: Text(
-                            'START',
-                            style: TextStyle(
-                              fontSize:
-                                  MediaQuery.of(context).size.height * 0.06,
+                      : IgnorePointer(
+                          ignoring: ignorePointer,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              toggleTaximeter();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: Colors.green,
+                            ),
+                            child: Text(
+                              'START',
+                              style: TextStyle(
+                                fontSize:
+                                    MediaQuery.of(context).size.height * 0.06,
+                              ),
                             ),
                           ),
                         ),
@@ -371,11 +380,15 @@ class _FrontScreenState extends State<FrontScreen> {
       if (!isCalculatingSpeed) {
         calculateSpeed();
         calculateDistance();
+        startFareUpdateTimer();
         isCalculatingSpeed = true;
-        playSound('assets/audio/start.mp3');
-        // startCalculatingFare();
+        speak('App fare calculator started');
       }
     });
+  }
+
+  void updateFareController(double newFare) {
+    _fareController.add(newFare);
   }
 
   double calculateFare({
@@ -398,14 +411,18 @@ class _FrontScreenState extends State<FrontScreen> {
 
     // Calculate total fare
     double totalFare = distanceFare + waitTimeFare;
-    _fareController.add(totalFare);
-
+    // _fareController.add(totalFare);
+    updateFareController(totalFare);
     totalPrice = totalFare;
     return totalPrice;
   }
 
   // Function to start the periodic timer
   void startFareUpdateTimer() {
+    if (kDebugMode) print("Starting Timer");
+
+    _fareController =
+        StreamController<double>(); // Reinitialize the StreamController
     const Duration updateInterval = Duration(seconds: 1);
 
     fareUpdateTimer = Timer.periodic(updateInterval, (timer) {
@@ -420,18 +437,22 @@ class _FrontScreenState extends State<FrontScreen> {
 
   // Function to stop the periodic timer
   void stopFareUpdateTimer() {
+    if (kDebugMode) print("Stopping Timer");
     setState(() {
       fareUpdateTimer?.cancel();
     });
+    setState(() {
+      _fareController.add(totalFare);
+    });
   }
 
-  // Future<void> speak(String text) async {
-  //   await flutterTts.setLanguage("en-US"); // Change to the desired language
-  //   await flutterTts.setPitch(1.0); // Adjust pitch (1.0 is the default)
-  //   await flutterTts
-  //       .setSpeechRate(0.5); // Adjust speech rate (1.0 is the default)
-  //   await flutterTts.speak(text);
-  // }
+  Future<void> speak(String text) async {
+    await flutterTts.setLanguage("en-US"); // Change to the desired language
+    await flutterTts.setPitch(1.0); // Adjust pitch (1.0 is the default)
+    await flutterTts
+        .setSpeechRate(0.5); // Adjust speech rate (1.0 is the default)
+    await flutterTts.speak(text);
+  }
 
   ///---------------TOTAL FARE ------------------------------
 

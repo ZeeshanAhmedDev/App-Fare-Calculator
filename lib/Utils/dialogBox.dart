@@ -5,9 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:taxi_meter/Utils/provider.dart';
 
 class CustomDialogBox {
-  // static final TextEditingController textEditingController =
-  //     TextEditingController();
-
   var value = "";
 
   static dialogBox(BuildContext context, var value) {
@@ -34,7 +31,6 @@ class CustomDialogBox {
                     color: Colors.black,
                     fontSize: MediaQuery.of(context).size.height * 0.03,
                     fontWeight: FontWeight.bold,
-                    // fontStyle: FontWeight.bold
                   ),
                 ),
               ],

@@ -1,5 +1,4 @@
 import 'package:double_back_to_close_app/double_back_to_close_app.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -52,7 +51,9 @@ class _ChangeFareScreenState extends State<ChangeFareScreen> {
             ),
           ),
           leading: InkWell(
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () {
+              Navigator.of(context).pop();
+            },
             child: const Icon(
               Icons.arrow_back,
               color: Colors.black,
@@ -137,6 +138,12 @@ class _ChangeFareScreenState extends State<ChangeFareScreen> {
                               ));
                             }
                             textEditingController.clear();
+
+                            Provider.of<UserNotifier>(context).getFare().then(
+                              (value) {
+                                UserNotifier.fareSpeciallyForReset = value;
+                              },
+                            );
                           },
                           style: ElevatedButton.styleFrom(
                             foregroundColor: Colors.white,
